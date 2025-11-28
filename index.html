@@ -17,6 +17,18 @@
         /* Animasi loading */
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
+        
+        /* Highlight code block */
+        .code-block {
+            background: #1e293b;
+            color: #a5b4fc;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 relative">
@@ -40,10 +52,22 @@
     <!-- Container Utama -->
     <div class="max-w-4xl mx-auto px-4 py-6 space-y-6">
 
-        <!-- Pesan Error -->
+        <!-- Pesan Error Umum -->
         <div id="error-box" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm flex justify-between items-center">
             <p id="error-text"></p>
             <button onclick="hideError()"><i class="fa-solid fa-times"></i></button>
+        </div>
+
+        <!-- Pesan Konfigurasi (Muncul jika config kosong) -->
+        <div id="config-alert" class="hidden bg-amber-50 border-l-4 border-amber-500 text-amber-800 p-6 rounded shadow-md">
+            <h3 class="font-bold text-lg mb-2"><i class="fa-solid fa-triangle-exclamation"></i> Konfigurasi Belum Diisi!</h3>
+            <p class="mb-4">Aplikasi tidak bisa berjalan karena belum terhubung ke Firebase Anda.</p>
+            <ol class="list-decimal ml-5 space-y-2 text-sm">
+                <li>Buka file <b>retur.html</b> ini menggunakan Notepad / Text Editor.</li>
+                <li>Scroll ke bagian paling bawah (script).</li>
+                <li>Cari bagian <code>let firebaseConfig = { ... }</code>.</li>
+                <li>Isi dengan kode dari Firebase Console Anda.</li>
+            </ol>
         </div>
 
         <!-- FORM INPUT -->
@@ -185,6 +209,47 @@
         </div>
     </div>
 
+    <!-- MODAL PERMISSION ERROR (NEW) -->
+    <div id="permission-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center px-4">
+        <div class="absolute inset-0 bg-black opacity-70"></div>
+        <div class="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full relative z-10 border-l-4 border-amber-500">
+            <h3 class="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-lock text-amber-500"></i> Akses Ditolak Database
+            </h3>
+            <p class="text-sm text-gray-600 mb-4">
+                Aplikasi terhubung, namun <b>Database Firestore</b> Anda menolak izin baca/tulis. Ini normal untuk project baru.
+            </p>
+            
+            <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                <p class="text-xs font-bold text-blue-800 mb-2 uppercase">Cara Memperbaiki (Hanya 1 menit):</p>
+                <ol class="list-decimal ml-4 text-xs text-gray-700 space-y-1">
+                    <li>Buka <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 underline font-bold">Firebase Console</a> Anda.</li>
+                    <li>Masuk ke menu <b>Firestore Database</b> > Tab <b>Rules</b>.</li>
+                    <li>Hapus semua kode yang ada disitu.</li>
+                    <li>Copy kode di bawah ini & Paste ke sana:</li>
+                </ol>
+                <div class="code-block mt-2 select-all" onclick="navigator.clipboard.writeText(this.innerText); alert('Kode tersalin!');">
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}</div>
+                <div class="text-[10px] text-gray-400 mt-1 text-center">(Klik kode untuk menyalin)</div>
+                <ol class="list-decimal ml-4 text-xs text-gray-700 space-y-1 mt-2" start="5">
+                    <li>Klik tombol <b>Publish</b> di Firebase Console.</li>
+                    <li>Refresh halaman aplikasi ini.</li>
+                </ol>
+            </div>
+
+            <button onclick="document.getElementById('permission-modal').classList.add('hidden')" class="w-full py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-bold transition">
+                Tutup & Coba Lagi
+            </button>
+        </div>
+    </div>
+
     <!-- 4. LOGIKA JAVASCRIPT & FIREBASE -->
     <script type="module">
         // Import Firebase dari CDN (Internet)
@@ -193,24 +258,29 @@
         import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
         // --- KONFIGURASI FIREBASE ---
-        // PENTING: Jika menjalankan di laptop sendiri, GANTI bagian ini dengan config dari Firebase Console Anda
         let firebaseConfig = {
-             // apiKey: "...",
-             // authDomain: "...",
-             // projectId: "...",
-             // const firebaseConfig = {
-  apiKey: "AIzaSyAAPNt-N6BEhZOeJEbuurgYJ7VSN-mfPrQ",
-  authDomain: "aplikasi-retur-barang.firebaseapp.com",
-  projectId: "aplikasi-retur-barang",
-  storageBucket: "aplikasi-retur-barang.firebasestorage.app",
-  messagingSenderId: "1049469678666",
-  appId: "1:1049469678666:web:3a0c0651f97fba5b4fe2b3"
-};
+            apiKey: "AIzaSyAAPNt-N6BEhZOeJEbuurgYJ7VSN-mfPrQ",
+            authDomain: "aplikasi-retur-barang.firebaseapp.com",
+            projectId: "aplikasi-retur-barang",
+            storageBucket: "aplikasi-retur-barang.firebasestorage.app",
+            messagingSenderId: "1049469678666",
+            appId: "1:1049469678666:web:3a0c0651f97fba5b4fe2b3"
+        };
+
         // Kode khusus agar preview di sini jalan (abaikan block if ini jika di laptop)
         let appId = 'my-shop';
         if (typeof __firebase_config !== 'undefined') {
             firebaseConfig = JSON.parse(__firebase_config);
             appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        }
+
+        // --- CEK APAKAH USER SUDAH ISI CONFIG ---
+        if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("ISI_API_KEY")) {
+            document.getElementById('config-alert').classList.remove('hidden');
+            document.getElementById('user-display').innerText = "Config Error";
+            document.getElementById('user-display').classList.replace('bg-indigo-700', 'bg-red-600');
+            // Stop script execution if no config (to prevent console errors)
+            throw new Error("Firebase Config belum diisi oleh user.");
         }
 
         // --- INISIALISASI ---
@@ -222,6 +292,7 @@
         let currentUser = null;
         let deleteTargetId = null;
         let isEditing = false;
+        let permissionErrorShown = false;
 
         // --- 1. LOGIN OTOMATIS ---
         async function initAuth() {
@@ -233,6 +304,7 @@
                 }
             } catch (err) {
                 showError("Gagal Login: " + err.message);
+                console.error("Auth Error:", err);
             }
         }
         initAuth();
@@ -249,7 +321,9 @@
 
         // --- 2. AMBIL DATA (REALTIME) ---
         function loadData() {
-            const collRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'returns');
+            // Gunakan path simple 'returns' collection di root untuk user anonymous ini
+            // Atau tetap structure 'users/{uid}/returns' agar aman
+            const collRef = collection(db, 'users', currentUser.uid, 'returns');
             
             onSnapshot(collRef, (snapshot) => {
                 const items = [];
@@ -262,7 +336,15 @@
                 
                 renderTable(items);
             }, (error) => {
-                showError("Gagal mengambil data: " + error.message);
+                if (error.code === 'permission-denied' || error.message.includes('permission') || error.message.includes('Missing or insufficient permissions')) {
+                     if (!permissionErrorShown) {
+                        document.getElementById('permission-modal').classList.remove('hidden');
+                        permissionErrorShown = true;
+                     }
+                } else {
+                    showError("Gagal mengambil data: " + error.message);
+                }
+                console.error("Firestore Error:", error);
             });
         }
 
@@ -328,7 +410,7 @@
 
             try {
                 const editId = document.getElementById('edit-id').value;
-                const collRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'returns');
+                const collRef = collection(db, 'users', currentUser.uid, 'returns');
 
                 if (editId) {
                     // Update Data
@@ -343,7 +425,11 @@
                     document.getElementById('edit-id').value = "";
                 }
             } catch (error) {
-                showError("Gagal menyimpan: " + error.message);
+                if (error.code === 'permission-denied') {
+                    document.getElementById('permission-modal').classList.remove('hidden');
+                } else {
+                    showError("Gagal menyimpan: " + error.message);
+                }
             } finally {
                 btn.disabled = false;
                 document.getElementById('btn-text').innerText = isEditing ? "Update Data" : "Simpan Data";
@@ -409,7 +495,7 @@
         window.confirmDelete = async () => {
             if (!deleteTargetId) return;
             try {
-                const collRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'returns');
+                const collRef = collection(db, 'users', currentUser.uid, 'returns');
                 await deleteDoc(doc(collRef, deleteTargetId));
                 
                 // Jika data yg dihapus sedang diedit, batalkan edit
@@ -418,8 +504,13 @@
                 }
                 window.closeDeleteModal();
             } catch (error) {
-                showError("Gagal menghapus: " + error.message);
-                window.closeDeleteModal();
+                if (error.code === 'permission-denied') {
+                    document.getElementById('permission-modal').classList.remove('hidden');
+                    window.closeDeleteModal();
+                } else {
+                    showError("Gagal menghapus: " + error.message);
+                    window.closeDeleteModal();
+                }
             }
         };
 
@@ -438,4 +529,3 @@
     </script>
 </body>
 </html>
-
