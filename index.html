@@ -1,0 +1,492 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
+import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+
+// --- FIREBASE CONFIGURATION & INITIALIZATION ---
+const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+function App() {
+  const [user, setUser] = useState(null);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  
+  // State untuk Edit & Delete
+  const [editingId, setEditingId] = useState(null);
+  const [deleteId, setDeleteId] = useState(null); // ID item yang akan dihapus (untuk modal)
+
+  // Form State
+  const [formData, setFormData] = useState({
+    nomor: '',
+    tanggal: new Date().toISOString().split('T')[0],
+    namaBarang: '',
+    jumlah: '',
+    ekspedisi: ''
+  });
+
+  // --- 1. AUTHENTICATION ---
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (error) {
+        console.error("Auth Error:", error);
+        setErrorMsg("Gagal terhubung ke sistem login.");
+      }
+    };
+
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // --- 2. DATA FETCHING (REALTIME) ---
+  useEffect(() => {
+    if (!user) return;
+
+    const collectionRef = collection(db, 'artifacts', appId, 'users', user.uid, 'returns');
+
+    const unsubscribe = onSnapshot(collectionRef, (snapshot) => {
+      const fetchedData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      fetchedData.sort((a, b) => {
+        const dateA = new Date(a.tanggal);
+        const dateB = new Date(b.tanggal);
+        return dateB - dateA || (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+      });
+
+      setItems(fetchedData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Firestore Error:", error);
+      setErrorMsg("Gagal mengambil data dari cloud.");
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // --- 3. HANDLERS ---
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!user) return;
+    setSubmitting(true);
+
+    try {
+      if (editingId) {
+        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'returns', editingId);
+        await updateDoc(docRef, {
+          ...formData,
+          updatedAt: serverTimestamp()
+        });
+        setEditingId(null);
+      } else {
+        const collectionRef = collection(db, 'artifacts', appId, 'users', user.uid, 'returns');
+        await addDoc(collectionRef, {
+          ...formData,
+          createdAt: serverTimestamp()
+        });
+      }
+      
+      setFormData({
+        nomor: '',
+        tanggal: new Date().toISOString().split('T')[0],
+        namaBarang: '',
+        jumlah: '',
+        ekspedisi: ''
+      });
+      // Scroll ke bawah agar user melihat data baru (opsional, tapi user biasanya ingin lihat inputan baru)
+    } catch (error) {
+      console.error("Error saving document: ", error);
+      setErrorMsg("Gagal menyimpan data.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEdit = (item) => {
+    setEditingId(item.id);
+    setFormData({
+      nomor: item.nomor,
+      tanggal: item.tanggal,
+      namaBarang: item.namaBarang,
+      jumlah: item.jumlah,
+      ekspedisi: item.ekspedisi
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setFormData({
+      nomor: '',
+      tanggal: new Date().toISOString().split('T')[0],
+      namaBarang: '',
+      jumlah: '',
+      ekspedisi: ''
+    });
+  };
+
+  // Trigger Modal Konfirmasi
+  const promptDelete = (docId) => {
+    setDeleteId(docId);
+  };
+
+  // Eksekusi Hapus Data
+  const confirmDelete = async () => {
+    if (!user || !deleteId) return;
+    try {
+      const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'returns', deleteId);
+      await deleteDoc(docRef);
+      
+      if (editingId === deleteId) {
+        handleCancelEdit();
+      }
+      setDeleteId(null); // Tutup modal
+    } catch (error) {
+      console.error("Error deleting document: ", error);
+      setErrorMsg("Gagal menghapus data.");
+    }
+  };
+
+  const totalBarang = useMemo(() => {
+    return items.reduce((acc, curr) => acc + (parseInt(curr.jumlah) || 0), 0);
+  }, [items]);
+
+  return (
+    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans relative">
+      
+      {/* Modal Konfirmasi Delete */}
+      {deleteId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black opacity-50" onClick={() => setDeleteId(null)}></div>
+          
+          {/* Modal Content */}
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full relative z-10 animate-[bounce_0.2s_ease-out]">
+            <div className="text-center mb-4">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-red-500">
+                <i className="fa-solid fa-triangle-exclamation text-xl"></i>
+              </div>
+              <h3 className="text-lg font-bold text-gray-800">Hapus Data?</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Anda yakin ingin menghapus data retur ini? Tindakan ini tidak dapat dibatalkan.
+              </p>
+            </div>
+            <div className="flex justify-center gap-3">
+              <button 
+                onClick={() => setDeleteId(null)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold transition"
+              >
+                Batal
+              </button>
+              <button 
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold shadow-md transition"
+              >
+                Ya, Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="bg-indigo-600 text-white shadow-lg sticky top-0 z-40">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+                <i className="fa-solid fa-boxes-packing"></i> Re-Turn App
+              </h1>
+              <p className="text-indigo-200 text-xs md:text-sm mt-0.5">Pencatatan Retur Barang Cloud</p>
+            </div>
+            <div className="text-right hidden sm:block">
+               <div className="text-xs text-indigo-300">User ID</div>
+               <div className="font-mono text-xs bg-indigo-700 px-2 py-1 rounded">{user ? user.uid.slice(0, 8) + '...' : 'Connecting...'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        
+        {/* Error Message */}
+        {errorMsg && (
+          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm flex justify-between items-center">
+            <p>{errorMsg}</p>
+            <button onClick={() => setErrorMsg('')}><i className="fa-solid fa-times"></i></button>
+          </div>
+        )}
+
+        {/* Input Form Card */}
+        <div className={`bg-white rounded-xl shadow-md overflow-hidden border transition-colors duration-300 ${editingId ? 'border-amber-400 ring-2 ring-amber-100' : 'border-gray-100'}`}>
+          <div className={`px-6 py-3 border-b flex items-center justify-between ${editingId ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-100'}`}>
+            <h2 className={`font-bold ${editingId ? 'text-amber-700' : 'text-gray-700'}`}>
+              {editingId ? (
+                <><i className="fa-solid fa-pen-to-square mr-2"></i>Edit Data Retur</>
+              ) : (
+                <><i className="fa-solid fa-plus-circle mr-2 text-indigo-500"></i>Input Data Baru</>
+              )}
+            </h2>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              
+              {/* Nomor Retur */}
+              <div>
+                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Nomor Retur / Resi</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <i className="fa-solid fa-hashtag"></i>
+                  </div>
+                  <input 
+                    required
+                    type="text" 
+                    name="nomor"
+                    value={formData.nomor}
+                    onChange={handleInputChange}
+                    placeholder="Contoh: R-001 / JP-123456" 
+                    className="pl-10 w-full rounded-lg border-gray-300 border p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  />
+                </div>
+              </div>
+
+              {/* Tanggal */}
+              <div>
+                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Tanggal Terima</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <i className="fa-regular fa-calendar"></i>
+                  </div>
+                  <input 
+                    required
+                    type="date" 
+                    name="tanggal"
+                    value={formData.tanggal}
+                    onChange={handleInputChange}
+                    className="pl-10 w-full rounded-lg border-gray-300 border p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  />
+                </div>
+              </div>
+
+              {/* Nama Barang */}
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Nama Barang</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <i className="fa-solid fa-box-open"></i>
+                  </div>
+                  <input 
+                    required
+                    type="text" 
+                    name="namaBarang"
+                    value={formData.namaBarang}
+                    onChange={handleInputChange}
+                    placeholder="Contoh: Sepatu Sneakers Putih Uk. 42" 
+                    className="pl-10 w-full rounded-lg border-gray-300 border p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  />
+                </div>
+              </div>
+
+              {/* Jumlah */}
+              <div>
+                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Jumlah (Pcs)</label>
+                <input 
+                  required
+                  type="number" 
+                  min="1"
+                  name="jumlah"
+                  value={formData.jumlah}
+                  onChange={handleInputChange}
+                  placeholder="0" 
+                  className="w-full rounded-lg border-gray-300 border p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                />
+              </div>
+
+              {/* Ekspedisi */}
+              <div>
+                <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Nama Ekspedisi</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <i className="fa-solid fa-truck-fast"></i>
+                  </div>
+                  <input 
+                    required
+                    list="ekspedisi-list"
+                    type="text" 
+                    name="ekspedisi"
+                    value={formData.ekspedisi}
+                    onChange={handleInputChange}
+                    placeholder="Pilih atau ketik..." 
+                    className="pl-10 w-full rounded-lg border-gray-300 border p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  />
+                  <datalist id="ekspedisi-list">
+                    <option value="JNE" />
+                    <option value="J&T Express" />
+                    <option value="SiCepat" />
+                    <option value="AnterAja" />
+                    <option value="Tiki" />
+                    <option value="Pos Indonesia" />
+                    <option value="Shopee Xpress" />
+                    <option value="ID Express" />
+                  </datalist>
+                </div>
+              </div>
+
+            </div>
+
+            <div className="flex justify-end gap-3">
+              {editingId && (
+                <button 
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="bg-white hover:bg-gray-100 text-gray-600 font-bold py-2.5 px-6 rounded-lg border border-gray-300 shadow-sm transition"
+                >
+                  Batal
+                </button>
+              )}
+              <button 
+                type="submit" 
+                disabled={submitting || !user}
+                className={`${editingId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-2.5 px-6 rounded-lg shadow-md hover:shadow-lg transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2`}
+              >
+                {submitting ? (
+                  <i className="fa-solid fa-circle-notch fa-spin"></i>
+                ) : editingId ? (
+                  <><i className="fa-solid fa-check"></i> Update Data</>
+                ) : (
+                  <><i className="fa-solid fa-floppy-disk"></i> Simpan Data</>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* List Data Card */}
+        <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100">
+          <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <h2 className="font-bold text-gray-700 flex items-center gap-2">
+              <i className="fa-solid fa-list-ul text-indigo-500"></i> Riwayat Retur
+            </h2>
+            
+            <div className="flex gap-2 text-xs">
+              <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-bold">
+                Total Item: {totalBarang}
+              </div>
+              <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-bold">
+                Transaksi: {items.length}
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left text-gray-600">
+              <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+                <tr>
+                  <th scope="col" className="px-6 py-3">Tanggal</th>
+                  <th scope="col" className="px-6 py-3">No. Retur</th>
+                  <th scope="col" className="px-6 py-3">Barang</th>
+                  <th scope="col" className="px-6 py-3 text-center">Jml</th>
+                  <th scope="col" className="px-6 py-3">Ekspedisi</th>
+                  <th scope="col" className="px-6 py-3 text-center w-40">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-8 text-center text-gray-400">
+                      <i className="fa-solid fa-circle-notch fa-spin text-2xl mb-2"></i>
+                      <p>Memuat data dari cloud...</p>
+                    </td>
+                  </tr>
+                ) : items.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-8 text-center text-gray-400 bg-white">
+                      <div className="flex flex-col items-center justify-center">
+                        <i className="fa-solid fa-clipboard-check text-4xl mb-2 text-gray-200"></i>
+                        <p>Belum ada data retur.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  items.map((item) => (
+                    <tr key={item.id} className={`border-b transition ${editingId === item.id ? 'bg-amber-50 border-l-4 border-l-amber-400' : 'bg-white hover:bg-gray-50'}`}>
+                      <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                        {item.tanggal}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap font-mono text-xs text-indigo-600 bg-indigo-50 rounded-md py-1 px-2 w-fit">
+                        {item.nomor}
+                      </td>
+                      <td className="px-6 py-4 font-medium">
+                        {item.namaBarang}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="bg-gray-100 text-gray-800 text-xs font-bold px-2.5 py-0.5 rounded border border-gray-200">
+                          {item.jumlah}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <i className="fa-solid fa-truck-moving text-gray-400 text-xs"></i>
+                          {item.ekspedisi}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button 
+                            onClick={() => handleEdit(item)}
+                            className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded shadow-sm text-xs font-bold transition flex items-center gap-1"
+                            title="Edit Data"
+                            disabled={editingId === item.id}
+                          >
+                            <i className="fa-solid fa-pencil"></i> Edit
+                          </button>
+                          <button 
+                            onClick={() => promptDelete(item.id)}
+                            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded shadow-sm text-xs font-bold transition flex items-center gap-1"
+                            title="Hapus Data"
+                          >
+                            <i className="fa-solid fa-trash-can"></i> Hapus
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        
+        <div className="text-center text-xs text-gray-400 pb-8">
+          Data tersimpan aman di Cloud Firestore &bull; &copy; 2025 Re-Turn App
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+export default App;
