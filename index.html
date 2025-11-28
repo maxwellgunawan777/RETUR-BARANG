@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Re-Turn App (Final)</title>
+    <title>Re-Turn App (Permanent)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -32,18 +32,21 @@
 
     <!-- Header -->
     <div class="bg-indigo-600 text-white shadow-lg sticky top-0 z-40">
-        <div class="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div>
                 <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2">
                     <i class="fa-solid fa-boxes-packing"></i> Re-Turn App
                 </h1>
-                <p class="text-indigo-200 text-xs md:text-sm mt-0.5">Versi Final</p>
+                <p class="text-indigo-200 text-xs md:text-sm mt-0.5">Cloud Storage (Permanen)</p>
             </div>
-            <div class="text-right hidden sm:block">
-                <div class="text-xs text-indigo-300">Status</div>
-                <div id="user-display" class="font-mono text-xs bg-indigo-800 px-3 py-1 rounded flex items-center gap-2">
-                    <i class="fa-solid fa-circle-notch fa-spin text-[10px]"></i> Connecting...
+            
+            <!-- ID Toko Manager -->
+            <div class="bg-indigo-700 px-3 py-2 rounded-lg flex items-center gap-2 border border-indigo-500 shadow-inner">
+                <div class="text-right">
+                    <div class="text-[10px] text-indigo-300 uppercase font-bold tracking-wider">ID Toko Anda</div>
+                    <div id="store-id-display" class="font-mono text-sm font-bold text-white tracking-widest cursor-pointer hover:text-indigo-200 transition" onclick="editStoreId()" title="Klik untuk ubah">...</div>
                 </div>
+                <button onclick="editStoreId()" class="text-indigo-300 hover:text-white transition"><i class="fa-solid fa-pen-to-square"></i></button>
             </div>
         </div>
     </div>
@@ -59,7 +62,7 @@
         <!-- Alert Config -->
         <div id="config-alert" class="hidden bg-amber-50 border-l-4 border-amber-500 text-amber-800 p-6 rounded shadow-md">
             <h3 class="font-bold text-lg mb-2"><i class="fa-solid fa-triangle-exclamation"></i> Konfigurasi Belum Diisi!</h3>
-            <p class="mb-4">Mohon isi <code>firebaseConfig</code> di bagian bawah script.</p>
+            <p class="mb-4">Mohon isi <code>firebaseConfig</code> di bagian bawah script agar aplikasi bisa berjalan.</p>
         </div>
 
         <!-- FORM INPUT -->
@@ -68,7 +71,10 @@
                 <h2 id="form-title" class="font-bold text-gray-700">
                     <i class="fa-solid fa-plus-circle mr-2 text-indigo-500"></i>Input Data Baru
                 </h2>
-                <span class="text-xs text-gray-400 bg-white border px-2 py-1 rounded">Auto-Save</span>
+                <div class="flex items-center gap-2">
+                    <div id="status-dot" class="w-2 h-2 rounded-full bg-red-500"></div>
+                    <span id="status-text" class="text-xs text-gray-400">Offline</span>
+                </div>
             </div>
             
             <form id="retur-form" class="p-6">
@@ -182,7 +188,7 @@
         </div>
     </div>
 
-    <!-- MODAL DATABASE NOT FOUND (NEW - LEBIH JELAS) -->
+    <!-- MODAL DATABASE NOT FOUND -->
     <div id="database-modal" class="hidden fixed inset-0 z-[150] flex items-center justify-center px-4">
         <div class="absolute inset-0 bg-black opacity-80"></div>
         <div class="bg-white rounded-xl shadow-2xl p-6 max-w-lg w-full relative z-10 border-t-4 border-purple-600 animate-[bounce_0.2s_ease-out]">
@@ -192,7 +198,6 @@
             <p class="text-sm text-gray-600 mb-4">
                 Error ini muncul karena Anda belum membuat <b>Database Firestore</b> di Firebase Console. Aplikasi tidak bisa menyimpan data tanpanya.
             </p>
-            
             <div class="bg-purple-50 p-4 rounded-lg mb-6 border border-purple-100">
                 <p class="text-xs font-bold text-purple-800 mb-2 uppercase tracking-wide">Langkah Perbaikan (Wajib):</p>
                 <ol class="list-decimal ml-4 text-sm text-gray-700 space-y-2">
@@ -204,7 +209,6 @@
                     <li>Pilih <b>Start in test mode</b> (PENTING!), lalu klik <b>Create</b>.</li>
                 </ol>
             </div>
-
             <button onclick="location.reload()" class="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold shadow-lg transition transform hover:scale-[1.02]">
                 Saya Sudah Membuatnya, Refresh Halaman!
             </button>
@@ -221,7 +225,6 @@
             <p class="text-sm text-gray-600 mb-4">
                 Database sudah ada, tapi menolak izin tulis. Anda perlu memperbarui "Rules".
             </p>
-            
             <div class="bg-amber-50 p-4 rounded-lg mb-4 border border-amber-100">
                 <p class="text-xs font-bold text-amber-800 mb-2 uppercase">1. Copy Kode Ini:</p>
                 <div class="code-block mt-2 select-all text-xs cursor-pointer hover:bg-slate-700 transition" onclick="navigator.clipboard.writeText(this.innerText); alert('Kode tersalin!');">
@@ -234,7 +237,6 @@ service cloud.firestore {
   }
 }</div>
                 <p class="text-[10px] text-gray-500 mt-1 text-center">(Klik kode di atas untuk menyalin)</p>
-                
                 <p class="text-xs font-bold text-amber-800 mt-4 mb-2 uppercase">2. Paste di Sini:</p>
                 <ol class="list-decimal ml-4 text-sm text-gray-700 space-y-1">
                     <li>Buka <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 underline font-bold">Firebase Console</a> > <b>Firestore Database</b>.</li>
@@ -242,7 +244,6 @@ service cloud.firestore {
                     <li>Hapus kode lama, Paste kode baru, lalu klik <b>Publish</b>.</li>
                 </ol>
             </div>
-
             <button onclick="location.reload()" class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold shadow-lg transition transform hover:scale-[1.02]">
                 Sudah Diperbarui, Coba Lagi!
             </button>
@@ -282,26 +283,56 @@ service cloud.firestore {
         let unsubscribe = null; 
         let dataCache = []; 
 
+        // --- LOGIC ID TOKO (KUNCI AGAR DATA TIDAK HILANG) ---
+        // Kita simpan ID Toko di LocalStorage browser
+        let storeId = localStorage.getItem('retur_app_store_id');
+        
+        // Jika belum ada (pertama kali buka), buat ID baru acak
+        if (!storeId) {
+            storeId = 'toko-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+            localStorage.setItem('retur_app_store_id', storeId);
+        }
+        
+        // Tampilkan ID Toko di Header
+        document.getElementById('store-id-display').innerText = storeId;
+
+        // Fungsi Edit ID Toko (Manual)
+        window.editStoreId = () => {
+            const newId = prompt("Masukkan ID Toko (Gunakan ID lama untuk memulihkan data):", storeId);
+            if (newId && newId.trim() !== "") {
+                storeId = newId.trim();
+                localStorage.setItem('retur_app_store_id', storeId);
+                document.getElementById('store-id-display').innerText = storeId;
+                // Reload data dengan ID baru
+                loadData();
+            }
+        };
+
         // 1. Auth & Status
         signInAnonymously(auth).catch(err => showError(err.message));
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
-                const statusDiv = document.getElementById('user-display');
-                statusDiv.innerHTML = '<i class="fa-solid fa-circle text-green-400 text-[8px]"></i> Online';
-                statusDiv.classList.replace('bg-indigo-800', 'bg-indigo-900');
+                const statusDot = document.getElementById('status-dot');
+                const statusText = document.getElementById('status-text');
+                statusDot.classList.replace('bg-red-500', 'bg-green-500');
+                statusText.innerText = "Online";
+                statusText.classList.replace('text-gray-400', 'text-green-600');
+                
+                // Panggil loadData setelah login sukses
                 loadData();
             } else {
-                document.getElementById('user-display').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Reconnecting...';
+                document.getElementById('status-text').innerText = "Reconnecting...";
             }
         });
 
-        // 2. Load Data 
+        // 2. Load Data (Menggunakan storeId, BUKAN user.uid)
         function loadData() {
             if (unsubscribe) unsubscribe(); 
 
-            const collRef = collection(db, 'users', currentUser.uid, 'returns');
+            // PENTING: Path menggunakan 'storeId' agar konsisten walau user ID berubah
+            const collRef = collection(db, 'stores', storeId, 'returns');
             
             unsubscribe = onSnapshot(collRef, (snapshot) => {
                 dataCache = [];
@@ -312,7 +343,7 @@ service cloud.firestore {
                 dataCache.sort((a, b) => {
                     const dateA = a.tanggal ? new Date(a.tanggal) : new Date(0);
                     const dateB = b.tanggal ? new Date(b.tanggal) : new Date(0);
-                    return dateB - dateA; // Newest first
+                    return dateB - dateA;
                 });
                 
                 renderTable();
@@ -321,10 +352,9 @@ service cloud.firestore {
             });
         }
 
-        // Error Handler Terpusat
+        // Error Handler
         function handleFirebaseError(error) {
             console.error("Firestore Error:", error);
-            // Cek berbagai string error untuk Database Not Found
             if (error.code === 'not-found' || error.message.includes('not-found') || error.message.includes('database (default) does not exist')) {
                 if (!dbNotFoundErrorShown) {
                     document.getElementById('database-modal').classList.remove('hidden');
@@ -349,7 +379,7 @@ service cloud.firestore {
             let totalQty = 0;
 
             if (dataCache.length === 0) {
-                html = `<tr><td colspan="6" class="px-6 py-8 text-center text-gray-400 bg-white">Belum ada data retur.</td></tr>`;
+                html = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-400 bg-white"><div class="flex flex-col items-center"><i class="fa-solid fa-folder-open text-3xl mb-2 text-gray-300"></i><p>Belum ada data untuk Toko ID: <span class="font-mono text-indigo-500 font-bold">${storeId}</span></p></div></td></tr>`;
             } else {
                 dataCache.forEach(item => {
                     totalQty += parseInt(item.jumlah || 0);
@@ -391,7 +421,7 @@ service cloud.firestore {
             }
         });
 
-        // 4. Submit Handler (ANTI MACET)
+        // 4. Submit Handler
         const form = document.getElementById('retur-form');
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -405,7 +435,6 @@ service cloud.firestore {
             const btnIcon = document.getElementById('btn-icon');
             const btnText = document.getElementById('btn-text');
             
-            // Set Loading UI
             btn.disabled = true;
             btnIcon.className = "fa-solid fa-circle-notch fa-spin";
             btnText.innerText = "Menyimpan...";
@@ -418,27 +447,24 @@ service cloud.firestore {
                 ekspedisi: document.getElementById('ekspedisi').value
             };
 
-            // TIMEOUT SAFETY: Jika lebih dari 10 detik, paksa reset.
             const timeoutPromise = new Promise((_, reject) => 
                 setTimeout(() => reject(new Error("Koneksi lambat (Timeout). Coba lagi.")), 10000)
             );
 
             try {
                 const editId = document.getElementById('edit-id').value;
-                const collRef = collection(db, 'users', currentUser.uid, 'returns');
+                // PENTING: Simpan ke path 'storeId'
+                const collRef = collection(db, 'stores', storeId, 'returns');
 
                 const operation = editId 
                     ? updateDoc(doc(collRef, editId), { ...data, updatedAt: serverTimestamp() })
                     : addDoc(collRef, { ...data, createdAt: serverTimestamp() });
 
-                // Race antara operasi database vs timeout 10 detik
                 await Promise.race([operation, timeoutPromise]);
 
-                // Sukses
                 if (editId) {
                     window.cancelEdit();
                 } else {
-                    // Reset Form Manual agar bersih
                     document.getElementById('nomor').value = '';
                     document.getElementById('namaBarang').value = '';
                     document.getElementById('jumlah').value = '';
@@ -452,7 +478,6 @@ service cloud.firestore {
                      showError(error.message);
                 }
             } finally {
-                // RESET TOMBOL (PENTING AGAR TIDAK MACET)
                 btn.disabled = false;
                 btnIcon.className = "fa-solid fa-floppy-disk";
                 btnText.innerText = isEditing ? "Update Data" : "Simpan Data";
@@ -510,7 +535,8 @@ service cloud.firestore {
         window.confirmDelete = async () => {
             if (!deleteTargetId) return;
             try {
-                const collRef = collection(db, 'users', currentUser.uid, 'returns');
+                // PENTING: Hapus dari path 'storeId'
+                const collRef = collection(db, 'stores', storeId, 'returns');
                 await deleteDoc(doc(collRef, deleteTargetId));
                 if (document.getElementById('edit-id').value === deleteTargetId) window.cancelEdit();
                 window.closeDeleteModal();
@@ -523,7 +549,6 @@ service cloud.firestore {
         function showError(msg) {
             document.getElementById('error-box').classList.remove('hidden');
             document.getElementById('error-text').innerText = msg;
-            // Auto hide error setelah 5 detik
             setTimeout(() => document.getElementById('error-box').classList.add('hidden'), 5000);
         }
         window.hideError = () => document.getElementById('error-box').classList.add('hidden');
