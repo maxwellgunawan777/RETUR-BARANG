@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Re-Turn App (Stabil)</title>
+    <title>Re-Turn App (Final)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -37,11 +37,13 @@
                 <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2">
                     <i class="fa-solid fa-boxes-packing"></i> Re-Turn App
                 </h1>
-                <p class="text-indigo-200 text-xs md:text-sm mt-0.5">Versi Stabil</p>
+                <p class="text-indigo-200 text-xs md:text-sm mt-0.5">Versi Final</p>
             </div>
             <div class="text-right hidden sm:block">
-                <div class="text-xs text-indigo-300">User ID</div>
-                <div id="user-display" class="font-mono text-xs bg-indigo-700 px-2 py-1 rounded">Connecting...</div>
+                <div class="text-xs text-indigo-300">Status</div>
+                <div id="user-display" class="font-mono text-xs bg-indigo-800 px-3 py-1 rounded flex items-center gap-2">
+                    <i class="fa-solid fa-circle-notch fa-spin text-[10px]"></i> Connecting...
+                </div>
             </div>
         </div>
     </div>
@@ -49,8 +51,8 @@
     <div class="max-w-4xl mx-auto px-4 py-6 space-y-6">
 
         <!-- Pesan Error -->
-        <div id="error-box" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm flex justify-between items-center">
-            <p id="error-text"></p>
+        <div id="error-box" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm flex justify-between items-center animate-bounce">
+            <p id="error-text" class="text-sm font-semibold"></p>
             <button onclick="hideError()"><i class="fa-solid fa-times"></i></button>
         </div>
 
@@ -117,6 +119,8 @@
                                 <option value="JNE"></option>
                                 <option value="J&T Express"></option>
                                 <option value="SiCepat"></option>
+                                <option value="AnterAja"></option>
+                                <option value="Shopee Xpress"></option>
                             </datalist>
                         </div>
                     </div>
@@ -124,8 +128,8 @@
 
                 <div class="flex justify-end gap-3">
                     <button type="button" id="btn-cancel" onclick="cancelEdit()" class="hidden bg-white hover:bg-gray-100 text-gray-600 font-bold py-2.5 px-6 rounded-lg border border-gray-300 shadow-sm transition">Batal</button>
-                    <button type="submit" id="btn-submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-md transition flex items-center gap-2 disabled:opacity-50">
-                        <i class="fa-solid fa-floppy-disk"></i> <span id="btn-text">Simpan Data</span>
+                    <button type="submit" id="btn-submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-md transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i id="btn-icon" class="fa-solid fa-floppy-disk"></i> <span id="btn-text">Simpan Data</span>
                     </button>
                 </div>
             </form>
@@ -178,13 +182,49 @@
         </div>
     </div>
 
+    <!-- MODAL DATABASE NOT FOUND (NEW - LEBIH JELAS) -->
+    <div id="database-modal" class="hidden fixed inset-0 z-[150] flex items-center justify-center px-4">
+        <div class="absolute inset-0 bg-black opacity-80"></div>
+        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-lg w-full relative z-10 border-t-4 border-purple-600 animate-[bounce_0.2s_ease-out]">
+            <h3 class="text-xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-database text-purple-600"></i> Database Belum Dibuat!
+            </h3>
+            <p class="text-sm text-gray-600 mb-4">
+                Error ini muncul karena Anda belum membuat <b>Database Firestore</b> di Firebase Console. Aplikasi tidak bisa menyimpan data tanpanya.
+            </p>
+            
+            <div class="bg-purple-50 p-4 rounded-lg mb-6 border border-purple-100">
+                <p class="text-xs font-bold text-purple-800 mb-2 uppercase tracking-wide">Langkah Perbaikan (Wajib):</p>
+                <ol class="list-decimal ml-4 text-sm text-gray-700 space-y-2">
+                    <li>Buka <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">Firebase Console</a> Anda.</li>
+                    <li>Klik pada proyek <b>aplikasi-retur-barang</b>.</li>
+                    <li>Di menu sebelah kiri, klik <b>Build</b> lalu pilih <b>Firestore Database</b>.</li>
+                    <li>Klik tombol <b>Create Database</b>.</li>
+                    <li>Pilih lokasi (biarkan default), klik <b>Next</b>.</li>
+                    <li>Pilih <b>Start in test mode</b> (PENTING!), lalu klik <b>Create</b>.</li>
+                </ol>
+            </div>
+
+            <button onclick="location.reload()" class="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold shadow-lg transition transform hover:scale-[1.02]">
+                Saya Sudah Membuatnya, Refresh Halaman!
+            </button>
+        </div>
+    </div>
+
     <!-- MODAL PERMISSION ERROR -->
-    <div id="permission-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center px-4">
-        <div class="absolute inset-0 bg-black opacity-70"></div>
-        <div class="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full relative z-10 border-l-4 border-amber-500">
-            <h3 class="text-lg font-bold text-gray-800 mb-2"><i class="fa-solid fa-lock text-amber-500"></i> Akses Ditolak Database</h3>
-            <p class="text-sm text-gray-600 mb-4">Database Firestore menolak izin tulis. Mohon update "Rules" di Firebase Console:</p>
-            <div class="code-block mt-2 select-all text-xs">
+    <div id="permission-modal" class="hidden fixed inset-0 z-[150] flex items-center justify-center px-4">
+        <div class="absolute inset-0 bg-black opacity-80"></div>
+        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-lg w-full relative z-10 border-t-4 border-amber-500 animate-[bounce_0.2s_ease-out]">
+            <h3 class="text-xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-lock text-amber-500"></i> Izin Akses Ditolak
+            </h3>
+            <p class="text-sm text-gray-600 mb-4">
+                Database sudah ada, tapi menolak izin tulis. Anda perlu memperbarui "Rules".
+            </p>
+            
+            <div class="bg-amber-50 p-4 rounded-lg mb-4 border border-amber-100">
+                <p class="text-xs font-bold text-amber-800 mb-2 uppercase">1. Copy Kode Ini:</p>
+                <div class="code-block mt-2 select-all text-xs cursor-pointer hover:bg-slate-700 transition" onclick="navigator.clipboard.writeText(this.innerText); alert('Kode tersalin!');">
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -193,7 +233,19 @@ service cloud.firestore {
     }
   }
 }</div>
-            <button onclick="document.getElementById('permission-modal').classList.add('hidden')" class="w-full mt-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-bold text-sm">Tutup</button>
+                <p class="text-[10px] text-gray-500 mt-1 text-center">(Klik kode di atas untuk menyalin)</p>
+                
+                <p class="text-xs font-bold text-amber-800 mt-4 mb-2 uppercase">2. Paste di Sini:</p>
+                <ol class="list-decimal ml-4 text-sm text-gray-700 space-y-1">
+                    <li>Buka <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 underline font-bold">Firebase Console</a> > <b>Firestore Database</b>.</li>
+                    <li>Klik tab <b>Rules</b>.</li>
+                    <li>Hapus kode lama, Paste kode baru, lalu klik <b>Publish</b>.</li>
+                </ol>
+            </div>
+
+            <button onclick="location.reload()" class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold shadow-lg transition transform hover:scale-[1.02]">
+                Sudah Diperbarui, Coba Lagi!
+            </button>
         </div>
     </div>
 
@@ -212,12 +264,7 @@ service cloud.firestore {
             appId: "1:1049469678666:web:3a0c0651f97fba5b4fe2b3"
         };
 
-        let appId = 'my-shop';
-        if (typeof __firebase_config !== 'undefined') {
-            firebaseConfig = JSON.parse(__firebase_config);
-            appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        }
-
+        // --- CEK CONFIG ---
         if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("ISI_API_KEY")) {
             document.getElementById('config-alert').classList.remove('hidden');
             throw new Error("Config Empty");
@@ -231,23 +278,28 @@ service cloud.firestore {
         let deleteTargetId = null;
         let isEditing = false;
         let permissionErrorShown = false;
-        let unsubscribe = null; // Untuk membersihkan listener lama
-        let dataCache = []; // Menyimpan data lokal
+        let dbNotFoundErrorShown = false;
+        let unsubscribe = null; 
+        let dataCache = []; 
 
-        // 1. Auth
+        // 1. Auth & Status
         signInAnonymously(auth).catch(err => showError(err.message));
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
-                document.getElementById('user-display').innerText = user.uid.slice(0, 8) + '...';
+                const statusDiv = document.getElementById('user-display');
+                statusDiv.innerHTML = '<i class="fa-solid fa-circle text-green-400 text-[8px]"></i> Online';
+                statusDiv.classList.replace('bg-indigo-800', 'bg-indigo-900');
                 loadData();
+            } else {
+                document.getElementById('user-display').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Reconnecting...';
             }
         });
 
-        // 2. Load Data (Dengan Cleanup)
+        // 2. Load Data 
         function loadData() {
-            if (unsubscribe) unsubscribe(); // Hapus listener lama jika ada
+            if (unsubscribe) unsubscribe(); 
 
             const collRef = collection(db, 'users', currentUser.uid, 'returns');
             
@@ -257,27 +309,40 @@ service cloud.firestore {
                     dataCache.push({ id: doc.id, ...doc.data() });
                 });
 
-                // Sort: Tanggal terbaru diatas. Handle null date aman.
                 dataCache.sort((a, b) => {
                     const dateA = a.tanggal ? new Date(a.tanggal) : new Date(0);
                     const dateB = b.tanggal ? new Date(b.tanggal) : new Date(0);
-                    return dateB - dateA;
+                    return dateB - dateA; // Newest first
                 });
                 
                 renderTable();
             }, (error) => {
-                if (error.code === 'permission-denied') {
-                    if (!permissionErrorShown) {
-                        document.getElementById('permission-modal').classList.remove('hidden');
-                        permissionErrorShown = true;
-                    }
-                } else {
-                    console.error(error);
-                }
+                handleFirebaseError(error);
             });
         }
 
-        // 3. Render Table (Event Delegation - LEBIH AMAN)
+        // Error Handler Terpusat
+        function handleFirebaseError(error) {
+            console.error("Firestore Error:", error);
+            // Cek berbagai string error untuk Database Not Found
+            if (error.code === 'not-found' || error.message.includes('not-found') || error.message.includes('database (default) does not exist')) {
+                if (!dbNotFoundErrorShown) {
+                    document.getElementById('database-modal').classList.remove('hidden');
+                    dbNotFoundErrorShown = true;
+                }
+            } else if (error.code === 'permission-denied' || error.message.includes('permission')) {
+                if (!permissionErrorShown) {
+                    document.getElementById('permission-modal').classList.remove('hidden');
+                    permissionErrorShown = true;
+                }
+            } else {
+                if (!error.message.includes('offline')) {
+                    showError("Gagal mengambil data: " + error.code);
+                }
+            }
+        }
+
+        // 3. Render Table 
         function renderTable() {
             const tbody = document.getElementById('table-body');
             let html = '';
@@ -299,8 +364,8 @@ service cloud.firestore {
                         <td class="px-6 py-4 text-xs text-gray-500">${item.ekspedisi}</td>
                         <td class="px-6 py-4 text-center">
                             <div class="flex justify-center gap-2">
-                                <button data-action="edit" data-id="${item.id}" class="bg-amber-500 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-amber-600">Edit</button>
-                                <button data-action="delete" data-id="${item.id}" class="bg-red-500 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-red-600">Hapus</button>
+                                <button data-action="edit" data-id="${item.id}" class="bg-amber-500 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-amber-600 shadow-sm">Edit</button>
+                                <button data-action="delete" data-id="${item.id}" class="bg-red-500 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-red-600 shadow-sm">Hapus</button>
                             </div>
                         </td>
                     </tr>`;
@@ -312,7 +377,6 @@ service cloud.firestore {
             document.getElementById('total-trx').innerText = dataCache.length;
         }
 
-        // Event Delegation untuk Tombol Tabel (Mengatasi masalah tanda kutip)
         document.getElementById('table-body').addEventListener('click', (e) => {
             const btn = e.target.closest('button');
             if (!btn) return;
@@ -327,13 +391,24 @@ service cloud.firestore {
             }
         });
 
-        // 4. Submit Handler
+        // 4. Submit Handler (ANTI MACET)
         const form = document.getElementById('retur-form');
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            if (!currentUser) {
+                showError("Belum terhubung ke server. Tunggu sebentar...");
+                return;
+            }
+
             const btn = document.getElementById('btn-submit');
+            const btnIcon = document.getElementById('btn-icon');
+            const btnText = document.getElementById('btn-text');
+            
+            // Set Loading UI
             btn.disabled = true;
-            document.getElementById('btn-text').innerText = "Menyimpan...";
+            btnIcon.className = "fa-solid fa-circle-notch fa-spin";
+            btnText.innerText = "Menyimpan...";
 
             const data = {
                 nomor: document.getElementById('nomor').value,
@@ -343,30 +418,44 @@ service cloud.firestore {
                 ekspedisi: document.getElementById('ekspedisi').value
             };
 
+            // TIMEOUT SAFETY: Jika lebih dari 10 detik, paksa reset.
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error("Koneksi lambat (Timeout). Coba lagi.")), 10000)
+            );
+
             try {
                 const editId = document.getElementById('edit-id').value;
                 const collRef = collection(db, 'users', currentUser.uid, 'returns');
 
+                const operation = editId 
+                    ? updateDoc(doc(collRef, editId), { ...data, updatedAt: serverTimestamp() })
+                    : addDoc(collRef, { ...data, createdAt: serverTimestamp() });
+
+                // Race antara operasi database vs timeout 10 detik
+                await Promise.race([operation, timeoutPromise]);
+
+                // Sukses
                 if (editId) {
-                    await updateDoc(doc(collRef, editId), { ...data, updatedAt: serverTimestamp() });
                     window.cancelEdit();
                 } else {
-                    await addDoc(collRef, { ...data, createdAt: serverTimestamp() });
-                    // Hanya reset field tertentu, tanggal biarkan
+                    // Reset Form Manual agar bersih
                     document.getElementById('nomor').value = '';
                     document.getElementById('namaBarang').value = '';
                     document.getElementById('jumlah').value = '';
                     document.getElementById('ekspedisi').value = '';
+                    document.getElementById('edit-id').value = '';
                 }
+
             } catch (error) {
-                if (error.code === 'permission-denied') {
-                    document.getElementById('permission-modal').classList.remove('hidden');
-                } else {
-                    showError("Gagal: " + error.message);
+                handleFirebaseError(error);
+                if (!error.message.includes('not-found') && !error.code === 'permission-denied') {
+                     showError(error.message);
                 }
             } finally {
+                // RESET TOMBOL (PENTING AGAR TIDAK MACET)
                 btn.disabled = false;
-                document.getElementById('btn-text').innerText = isEditing ? "Update Data" : "Simpan Data";
+                btnIcon.className = "fa-solid fa-floppy-disk";
+                btnText.innerText = isEditing ? "Update Data" : "Simpan Data";
             }
         });
 
@@ -380,7 +469,6 @@ service cloud.firestore {
             document.getElementById('jumlah').value = item.jumlah;
             document.getElementById('ekspedisi').value = item.ekspedisi;
 
-            // UI Update
             document.getElementById('form-card').classList.add('border-amber-400', 'ring-2');
             document.getElementById('form-title').innerText = 'Edit Data Retur';
             document.getElementById('form-title').classList.add('text-amber-700');
@@ -388,7 +476,7 @@ service cloud.firestore {
             document.getElementById('btn-text').innerText = "Update Data";
             document.getElementById('btn-cancel').classList.remove('hidden');
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            renderTable(); // Re-render untuk highlight row
+            renderTable();
         }
 
         window.cancelEdit = () => {
@@ -399,11 +487,11 @@ service cloud.firestore {
             document.getElementById('jumlah').value = "";
             document.getElementById('ekspedisi').value = "";
             
-            // Revert UI
             document.getElementById('form-card').classList.remove('border-amber-400', 'ring-2');
             document.getElementById('form-title').innerText = 'Input Data Baru';
             document.getElementById('form-title').classList.remove('text-amber-700');
             document.getElementById('btn-submit').classList.replace('bg-amber-500', 'bg-indigo-600');
+            document.getElementById('btn-icon').className = "fa-solid fa-floppy-disk";
             document.getElementById('btn-text').innerText = "Simpan Data";
             document.getElementById('btn-cancel').classList.add('hidden');
             renderTable();
@@ -427,7 +515,7 @@ service cloud.firestore {
                 if (document.getElementById('edit-id').value === deleteTargetId) window.cancelEdit();
                 window.closeDeleteModal();
             } catch (error) {
-                if (error.code === 'permission-denied') document.getElementById('permission-modal').classList.remove('hidden');
+                handleFirebaseError(error);
                 window.closeDeleteModal();
             }
         };
@@ -435,6 +523,8 @@ service cloud.firestore {
         function showError(msg) {
             document.getElementById('error-box').classList.remove('hidden');
             document.getElementById('error-text').innerText = msg;
+            // Auto hide error setelah 5 detik
+            setTimeout(() => document.getElementById('error-box').classList.add('hidden'), 5000);
         }
         window.hideError = () => document.getElementById('error-box').classList.add('hidden');
         
