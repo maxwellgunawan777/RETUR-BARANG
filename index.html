@@ -264,6 +264,7 @@ service cloud.firestore {
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
         import { getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, serverTimestamp, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
+        // --- KONFIGURASI FIREBASE TERBARU ---
         let firebaseConfig = {
             apiKey: "AIzaSyAAPNt-N6BEhZOeJEbuurgYJ7VSN-mfPrQ",
             authDomain: "aplikasi-retur-barang.firebaseapp.com",
@@ -273,6 +274,7 @@ service cloud.firestore {
             appId: "1:1049469678666:web:3a0c0651f97fba5b4fe2b3"
         };
 
+        // --- CEK CONFIG ---
         if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("ISI_API_KEY")) {
             document.getElementById('config-alert').classList.remove('hidden');
             throw new Error("Config Empty");
@@ -280,7 +282,14 @@ service cloud.firestore {
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        const db = getFirestore(app);
+        
+        // ENABLE OFFLINE PERSISTENCE (Agar data tidak hilang saat refresh walau offline)
+        // Note: initializeFirestore digunakan untuk setting cache
+        import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        
+        const db = initializeFirestore(app, {
+            localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+        });
 
         let currentUser = null;
         let deleteTargetId = null;
@@ -309,30 +318,32 @@ service cloud.firestore {
 
         // --- DIAGNOSA AWAL ---
         window.checkDatabase = async (isManual = false) => {
-            if(isManual) {
-                const statusDiv = document.getElementById('connection-status');
-                statusDiv.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-blue-500"></i> Checking...';
-            }
+            const statusDiv = document.getElementById('connection-status');
+            if(isManual) statusDiv.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-blue-500"></i> Checking...';
+            
             try {
                 // Coba baca path random untuk memicu error
                 const docRef = doc(db, 'system_check', 'connection_test');
                 await getDoc(docRef);
-                if(isManual) {
-                    alert("Koneksi ke Database Berhasil!");
-                    document.getElementById('connection-status').innerHTML = '<i class="fa-solid fa-circle text-green-500 text-[8px]"></i> <span class="text-green-600">Terhubung</span>';
-                }
-                return true; // DB exists
+                if(isManual) alert("Koneksi Database & Auth BERHASIL! Aman.");
             } catch (error) {
                 handleFirebaseError(error);
-                // Jika error not-found, kita hentikan proses selanjutnya
-                if (error.code === 'not-found' || error.message.includes('not-found') || error.message.includes('database (default) does not exist')) {
-                    return false; // DB missing
-                }
-                return true; // DB exists but permission error etc
             }
         };
 
-        signInAnonymously(auth).catch(err => showError(err.message));
+        // 1. Auth & Status (DENGAN DETEKSI ERROR AUTH)
+        signInAnonymously(auth).catch(err => {
+            console.error("Auth Error:", err);
+            const statusDiv = document.getElementById('connection-status');
+            
+            // Cek spesifik jika Auth belum diaktifkan
+            if (err.code === 'auth/admin-restricted-operation' || err.message.includes('enabled')) {
+                statusDiv.innerHTML = '<span class="text-red-600 font-bold cursor-pointer hover:underline" onclick="alert(\'Masalah: Authentication Belum Aktif!\\n\\nSolusi: Buka Firebase Console > Authentication > Sign-in method > Aktifkan Anonymous.\')"><i class="fa-solid fa-triangle-exclamation"></i> Auth Error (Klik)</span>';
+            } else {
+                statusDiv.innerHTML = `<span class="text-red-500 font-bold" title="${err.message}"><i class="fa-solid fa-circle text-[8px]"></i> Gagal Login</span>`;
+            }
+            showError("Gagal Login ke Firebase. Cek Status di kanan atas.");
+        });
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
@@ -340,11 +351,12 @@ service cloud.firestore {
                 updateStatus(true);
                 // SEQUENCE CHECK: Cek DB dulu, baru load data
                 const dbExists = await checkDatabase();
-                if (dbExists) {
+                if (dbExists !== false) { // false means not found
                     loadData();
                 }
             } else {
-                updateStatus(false);
+                // Jika user null tapi tidak ada error catch diatas, berarti masih connecting atau terputus
+                // updateStatus(false) dipanggil di catch block login
             }
         });
 
